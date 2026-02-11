@@ -1,0 +1,20 @@
+from fastapi import FastAPI
+from adapter.rest.routes import router
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="KBS Provider Amazon KB",
+        description="Provider for Amazon Bedrock Knowledge Bases",
+        version="0.1.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+    )
+    
+    app.include_router(router)
+    
+    return app
+
+if __name__ == "__main__":
+    app = create_app()
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)
