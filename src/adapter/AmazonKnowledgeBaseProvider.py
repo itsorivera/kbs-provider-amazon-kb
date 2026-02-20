@@ -2,7 +2,7 @@ import boto3
 from typing import Dict, List, Optional
 from loguru import logger
 import json
-
+import traceback
 from core.ports import KnowledgeBaseProvider
 from core.models import KnowledgeBase, DataSource, QueryRequest, QueryResponse, SearchResult
 from config import settings
@@ -66,7 +66,7 @@ class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
             
         return data_sources
 
-    async def query(self, request: QueryRequest) -> QueryResponse:
+    async def retrieve(self, request: QueryRequest) -> QueryResponse:
         if not request.knowledge_base_id:
              # In a real scenario we might query all KBs, but for now we require ID or handle it upstream
              # Ideally the Gateway handles the "which provider" part. 
@@ -130,22 +130,104 @@ class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
                     location=result.get('location', {}),
                     score=result.get('score')
                 ))
-
-        # We can implement "retrieve_and_generate" if we want an "answer", 
-        # but the interface says "query" and returns "answer".
-        # The simple "retrieve" only returns chunks. 
-        # The prompt implies "kbs-provider" connects and retrieves.
-        # If we want an answer, we might need `retrieve_and_generate`.
-        # However, the README contract says returns `{"answer": "string"}`.
-        # If we only do retrieval, we return chunks. 
-        # Let's assume for now we return the chunks formatted as a string in "answer" 
-        # OR we actually use RetrieveAndGenerate.
-        # The previous `retrieval.py` used `retrieve` and returned a string of joined JSONs.
-        # I will stick to that behavior for now to match existing logic.
         
         formatted_answer = "\n\n".join([json.dumps(r.model_dump(), default=str) for r in results])
         
         return QueryResponse(
             results=results,
             answer=formatted_answer
+        )
+
+    async def retrieve_and_generate(self, request: QueryRequest) -> QueryResponse:
+        if not request.knowledge_base_id:
+             raise ValueError("knowledge_base_id is required for Amazon KB query and generate")
+
+        # 1. Build retrieveAndGenerateConfiguration
+        # The API structure for retrieveAndGenerate is:
+        # {
+        #   "input": { "text": "string" },
+        #   "retrieveAndGenerateConfiguration": {
+        #       "type": "KNOWLEDGE_BASE",
+        #       "knowledgeBaseConfiguration": {
+        #           "knowledgeBaseId": "string",
+        #           "modelArn": "string", # Optional, if using a specific model
+        #           "retrievalConfiguration": { ... } # Optional
+        #       }
+        #   }
+        # }
+        
+        #TODO: We need a model ARN for generation. Parameter on the request? Or default to a specific one? 
+        # Ideally this comes from settings or request, but let's default to a popular one or one from settings if available.
+        # Check if we have a default model arn in settings, otherwise use a hardcoded default (e.g. Claude 3 or Titan)
+        # For now, let's assume 'anthropic.claude-3-sonnet-20240229-v1:0' or similar if not in settings.
+        # Actually, let's look at config.py to see if there is a MODEL_ARN.
+        model_arn = getattr(settings, 'GENERATION_MODEL_ARN', 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0')
+
+        kb_config = {
+            'knowledgeBaseId': request.knowledge_base_id,
+            'modelArn': model_arn,
+        }
+
+        # Add retrieval configuration if needed (e.g. number of results)
+        if request.num_results:
+             kb_config['retrievalConfiguration'] = {
+                'vectorSearchConfiguration': {
+                    'numberOfResults': request.num_results
+                }
+             }
+             
+        # Add filter if data_source_ids are present
+        if request.data_source_ids:
+            if 'retrievalConfiguration' not in kb_config:
+                 kb_config['retrievalConfiguration'] = {'vectorSearchConfiguration': {}}
+            
+            kb_config['retrievalConfiguration']['vectorSearchConfiguration']['filter'] = {
+                'in': {
+                    'key': 'x-amz-bedrock-kb-data-source-id',
+                    'value': request.data_source_ids
+                }
+            }
+
+        # 2. Call the API
+        try:
+            response = self.agent_runtime_client.retrieve_and_generate(
+                input={'text': request.query},
+                retrieveAndGenerateConfiguration={
+                    'type': 'KNOWLEDGE_BASE',
+                    'knowledgeBaseConfiguration': kb_config
+                }
+            )
+        except Exception as e:
+            traceback.print_exc()
+            logger.error(f"Error in retrieve_and_generate: {e}")
+            raise
+
+        # 3. Parse the response
+
+        answer_text = response.get('output', {}).get('text', '')
+        
+        results = []
+        citations = response.get('citations', [])
+        for citation in citations:
+            for ref in citation.get('retrievedReferences', []):
+                 # Map to SearchResult
+                 # Note: retrieve_and_generate structure is slightly different from retrieve
+                 content = ref.get('content', {})
+                 location = ref.get('location', {})
+                 metadata = ref.get('metadata', {})
+                 
+                 api_content = {
+                     'text': content.get('text'),
+                     'metadata': metadata
+                 }
+
+                 results.append(SearchResult(
+                     content=api_content,
+                     location=location,
+                     score=None # No score provided in retrieveAndGenerate references usually
+                 ))
+
+        return QueryResponse(
+            results=results,
+            answer=answer_text
         )

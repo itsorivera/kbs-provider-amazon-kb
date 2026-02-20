@@ -9,6 +9,11 @@ class KnowledgeBaseProvider(ABC):
         pass
 
     @abstractmethod
-    async def query(self, request: QueryRequest) -> QueryResponse:
-        """Query a knowledge base."""
+    async def retrieve(self, request: QueryRequest) -> QueryResponse:
+        """Retrieve chunks from a knowledge base."""
+        pass
+
+    @abstractmethod
+    async def retrieve_and_generate(self, request: QueryRequest) -> QueryResponse:
+        """Retrieve chunks from a knowledge base and generate an answer."""
         pass
