@@ -3,7 +3,7 @@ from typing import List, Dict
 
 from core.models import KnowledgeBase, QueryRequest, QueryResponse
 from core.ports import KnowledgeBaseProvider
-from infrastructure.aws_kb import AmazonKnowledgeBaseProvider
+from adapter.AmazonKnowledgeBaseProvider import AmazonKnowledgeBaseProvider
 
 router = APIRouter()
 
