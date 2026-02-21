@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict
 
-from core.models import KnowledgeBase, QueryRequest, QueryResponse
-from core.ports import KnowledgeBaseProvider
-from adapter.AmazonKnowledgeBaseProvider import AmazonKnowledgeBaseProvider
+from src.core.models import KnowledgeBase, QueryRequest, QueryResponse
+from src.core.ports import KnowledgeBaseProvider
+from src.adapter.AmazonKnowledgeBaseProvider import AmazonKnowledgeBaseProvider
 
 router = APIRouter()
 
