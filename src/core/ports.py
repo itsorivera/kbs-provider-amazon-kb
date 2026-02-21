@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Optional
 from src.core.models import KnowledgeBase, QueryRequest, QueryResponse, ListKnowledgeBasesResponse
 
 class KnowledgeBaseProvider(ABC):
