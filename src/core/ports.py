@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
-from core.models import KnowledgeBase, QueryRequest, QueryResponse
+from src.core.models import KnowledgeBase, QueryRequest, QueryResponse
 
 class KnowledgeBaseProvider(ABC):
     @abstractmethod

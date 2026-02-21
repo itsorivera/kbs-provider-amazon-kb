@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from adapter.rest.routes import router
+from src.adapter.rest.routes import router
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -14,7 +14,4 @@ def create_app() -> FastAPI:
     
     return app
 
-if __name__ == "__main__":
-    app = create_app()
-    import uvicorn
-    uvicorn.run(app, host="localhost", port=8000)
+app = create_app()

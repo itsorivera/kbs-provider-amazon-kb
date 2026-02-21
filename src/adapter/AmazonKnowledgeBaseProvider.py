@@ -3,9 +3,9 @@ from typing import Dict, List, Optional
 from loguru import logger
 import json
 import traceback
-from core.ports import KnowledgeBaseProvider
-from core.models import KnowledgeBase, DataSource, QueryRequest, QueryResponse, SearchResult
-from config import settings
+from src.core.ports import KnowledgeBaseProvider
+from src.core.models import KnowledgeBase, DataSource, QueryRequest, QueryResponse, SearchResult
+from src.config import settings
 
 class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
     def __init__(self):
