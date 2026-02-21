@@ -26,3 +26,7 @@ class SearchResult(BaseModel):
 class QueryResponse(BaseModel):
     results: List[SearchResult]
     answer: Optional[str] = None
+
+class ListKnowledgeBasesResponse(BaseModel):
+    knowledge_bases: List[KnowledgeBase]
+    next_token: Optional[str] = None

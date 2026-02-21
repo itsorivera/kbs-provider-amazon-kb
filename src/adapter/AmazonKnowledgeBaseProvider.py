@@ -4,7 +4,7 @@ from loguru import logger
 import json
 import traceback
 from src.core.ports import KnowledgeBaseProvider
-from src.core.models import KnowledgeBase, DataSource, QueryRequest, QueryResponse, SearchResult
+from src.core.models import KnowledgeBase, DataSource, QueryRequest, QueryResponse, SearchResult, ListKnowledgeBasesResponse
 from src.config import settings
 
 class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
@@ -19,37 +19,48 @@ class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
             return session.client(service_name, region_name=settings.AWS_REGION)
         return boto3.client(service_name, region_name=settings.AWS_REGION)
 
-    async def list_knowledge_bases(self) -> Dict[str, KnowledgeBase]:
-        result = {}
+    async def list_knowledge_bases(self, next_token: Optional[str] = None) -> ListKnowledgeBasesResponse:
+        knowledge_bases = []
         
-        # Collect KBs
-        paginator = self.agent_client.get_paginator('list_knowledge_bases')
-        for page in paginator.paginate():
-            for kb_summary in page.get('knowledgeBaseSummaries', []):
-                kb_id = kb_summary.get('knowledgeBaseId')
-                kb_name = kb_summary.get('name')
+        # Build arguments for list_knowledge_bases
+        list_args = {}
+        if next_token:
+            list_args['nextToken'] = next_token
+
+        # Use the API directly instead of paginator to follow the next_token flow
+        # or use paginator but return only one page if next_token is provided.
+        # Actually, if we want to support the outside next_token, we call the API once.  patrón llamado "Cursor-based Pagination"
+        response = self.agent_client.list_knowledge_bases(**list_args)
+        new_next_token = response.get('nextToken')
+        
+        for kb_summary in response.get('knowledgeBaseSummaries', []):
+            kb_id = kb_summary.get('knowledgeBaseId')
+            kb_name = kb_summary.get('name')
+            
+            # Check tags
+            try:
+                kb_details = self.agent_client.get_knowledge_base(knowledgeBaseId=kb_id)
+                kb_arn = kb_details.get('knowledgeBase', {}).get('knowledgeBaseArn')
+                tags = self.agent_client.list_tags_for_resource(resourceArn=kb_arn).get('tags', {})
                 
-                # Check tags
-                try:
-                    kb_details = self.agent_client.get_knowledge_base(knowledgeBaseId=kb_id)
-                    kb_arn = kb_details.get('knowledgeBase', {}).get('knowledgeBaseArn')
-                    tags = self.agent_client.list_tags_for_resource(resourceArn=kb_arn).get('tags', {})
+                if self.tag_key in tags and tags[self.tag_key] == 'true':
+                    # Get data sources
+                    data_sources = self._get_data_sources(kb_id)
                     
-                    if self.tag_key in tags and tags[self.tag_key] == 'true':
-                        # Get data sources
-                        data_sources = self._get_data_sources(kb_id)
-                        
-                        result[kb_id] = KnowledgeBase(
-                            id=kb_id,
-                            name=kb_name,
-                            description=kb_summary.get('description', ''),
-                            data_sources=data_sources
-                        )
-                except Exception as e:
-                    logger.error(f"Error processing KB {kb_id}: {e}")
-                    continue
+                    knowledge_bases.append(KnowledgeBase(
+                        id=kb_id,
+                        name=kb_name,
+                        description=kb_summary.get('description', ''),
+                        data_sources=data_sources
+                    ))
+            except Exception as e:
+                logger.error(f"Error processing KB {kb_id}: {e}")
+                continue
                     
-        return result
+        return ListKnowledgeBasesResponse(
+            knowledge_bases=knowledge_bases,
+            next_token=new_next_token
+        )
 
     def _get_data_sources(self, kb_id: str) -> List[DataSource]:
         data_sources = []
