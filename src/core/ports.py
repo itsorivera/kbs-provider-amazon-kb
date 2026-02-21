@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
-from src.core.models import KnowledgeBase, QueryRequest, QueryResponse
+from src.core.models import KnowledgeBase, QueryRequest, QueryResponse, ListKnowledgeBasesResponse
 
 class KnowledgeBaseProvider(ABC):
     @abstractmethod
-    async def list_knowledge_bases(self) -> Dict[str, KnowledgeBase]:
+    async def list_knowledge_bases(self, next_token: Optional[str] = None) -> ListKnowledgeBasesResponse:
         """List all available knowledge bases."""
         pass
 
