@@ -185,7 +185,8 @@ class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
         # Check if we have a default model arn in settings, otherwise use a hardcoded default (e.g. Claude 3 or Titan)
         # For now, let's assume 'anthropic.claude-3-sonnet-20240229-v1:0' or similar if not in settings.
         # Actually, let's look at config.py to see if there is a MODEL_ARN.
-        model_arn = getattr(settings, 'GENERATION_MODEL_ARN', 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0')
+        model_id = 'anthropic.claude-3-sonnet-20240229-v1:0'
+        model_arn = settings.GENERATION_MODEL_ARN or f'arn:aws:bedrock:{settings.AWS_REGION}::foundation-model/{model_id}'
 
         kb_config = {
             'knowledgeBaseId': request.knowledge_base_id,
