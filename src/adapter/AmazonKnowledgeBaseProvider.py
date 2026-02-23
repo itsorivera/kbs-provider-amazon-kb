@@ -107,13 +107,26 @@ class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
             }
         }
 
+        filters = []
         if request.data_source_ids:
-             request_config['vectorSearchConfiguration']['filter'] = {
+            filters.append({
                 'in': {
                     'key': 'x-amz-bedrock-kb-data-source-id',
                     'value': request.data_source_ids
                 }
-            }
+            })
+        
+        if request.filter:
+            filters.append(request.filter)
+            
+        if filters:
+            if 'vectorSearchConfiguration' not in request_config:
+                request_config['vectorSearchConfiguration'] = {}
+            
+            if len(filters) == 1:
+                request_config['vectorSearchConfiguration']['filter'] = filters[0]
+            else:
+                request_config['vectorSearchConfiguration']['filter'] = {'andAll': filters}
             
         if request.reranking:
             # Simple mapping for now, can be expanded
@@ -187,17 +200,26 @@ class AmazonKnowledgeBaseProvider(KnowledgeBaseProvider):
                 }
              }
              
-        # Add filter if data_source_ids are present
+        filters = []
         if request.data_source_ids:
-            if 'retrievalConfiguration' not in kb_config:
-                 kb_config['retrievalConfiguration'] = {'vectorSearchConfiguration': {}}
-            
-            kb_config['retrievalConfiguration']['vectorSearchConfiguration']['filter'] = {
+            filters.append({
                 'in': {
                     'key': 'x-amz-bedrock-kb-data-source-id',
                     'value': request.data_source_ids
                 }
-            }
+            })
+            
+        if request.filter:
+            filters.append(request.filter)
+            
+        if filters:
+            if 'retrievalConfiguration' not in kb_config:
+                 kb_config['retrievalConfiguration'] = {'vectorSearchConfiguration': {}}
+            
+            if len(filters) == 1:
+                kb_config['retrievalConfiguration']['vectorSearchConfiguration']['filter'] = filters[0]
+            else:
+                kb_config['retrievalConfiguration']['vectorSearchConfiguration']['filter'] = {'andAll': filters}
 
         # 2. Call the API
         try:

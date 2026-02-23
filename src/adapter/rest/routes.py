@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from src.core.models import KnowledgeBase, QueryRequest, QueryResponse, ListKnowledgeBasesResponse
 from src.core.ports import KnowledgeBaseProvider

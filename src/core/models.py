@@ -17,6 +17,7 @@ class QueryRequest(BaseModel):
     data_source_ids: Optional[List[str]] = None
     num_results: int = 20
     reranking: bool = False
+    filter: Optional[Dict[str, Any]] = None
 
 class SearchResult(BaseModel):
     content: Dict[str, Any]
